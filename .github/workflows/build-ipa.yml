@@ -33,19 +33,25 @@ jobs:
           echo "Xcode: $(xcodebuild -version | head -1)"
           echo "Swift: $(swift --version | head -1)"
 
-      - name: Verifica schema
-        run: |
-          xcodebuild -list -project MarcussNote/MarcusNote.xcodeproj
-
-      - name: Archive
+      - name: Trova Scheme e compila Archive
         env:
           CONFIG: ${{ inputs.configuration || 'Release' }}
         run: |
           mkdir -p build
           set -o pipefail
+          
+          # Estrae automaticamente il primo scheme disponibile nel progetto
+          SCHEME=$(xcodebuild -list -project MarcussNote/MarcusNote.xcodeproj | awk '/Schemes:/{flag=1; next} /^$/{flag=0} flag' | xargs | awk '{print $1}')
+          echo "Scheme rilevato: $SCHEME"
+          
+          if [ -z "$SCHEME" ]; then
+            echo "Nessuno scheme condiviso trovato. Uso il fallback MarcussNote."
+            SCHEME="MarcussNote"
+          fi
+
           xcodebuild archive \
             -project MarcussNote/MarcusNote.xcodeproj \
-            -scheme MarcusNote \
+            -scheme "$SCHEME" \
             -configuration "$CONFIG" \
             -destination 'generic/platform=iOS' \
             -archivePath build/MarcusNote.xcarchive \
