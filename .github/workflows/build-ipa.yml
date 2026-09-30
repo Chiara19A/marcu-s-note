@@ -6,11 +6,11 @@ on:
       configuration:
         description: "Configurazione build"
         required: false
-        default: Release
+        default: Debug
         type: choice
         options:
-          - Release
           - Debug
+          - Release
 
 permissions:
   contents: read
@@ -28,9 +28,9 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer || true
 
-      - name: Compila .app per iOS/iPadOS
+      - name: Compila .app per Simulator
         env:
-          CONFIG: ${{ inputs.configuration || 'Release' }}
+          CONFIG: ${{ inputs.configuration || 'Debug' }}
         run: |
           set -o pipefail
           xcodebuild build \
@@ -41,16 +41,23 @@ jobs:
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            ENABLE_PREVIEWS=NO \
+            SWIFT_COMPILATION_MODE=singlefile
 
       - name: Impacchetta IPA
         env:
-          CONFIG: ${{ inputs.configuration || 'Release' }}
+          CONFIG: ${{ inputs.configuration || 'Debug' }}
         run: |
           mkdir -p build/Payload
           APP_PATH=$(find build/DerivedData -name "*.app" -type d | head -1)
           echo "Trovata app in: $APP_PATH"
           
+          if [ -z "$APP_PATH" ]; then
+            echo "Errore: File .app non trovato!"
+            exit 1
+          fi
+
           cp -R "$APP_PATH" build/Payload/
           cd build
           zip -r "../MarcusNote-$CONFIG.ipa" Payload
