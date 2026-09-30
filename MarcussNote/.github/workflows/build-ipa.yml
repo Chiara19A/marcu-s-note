@@ -1,0 +1,75 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Configurazione build"
+        required: false
+        default: Release
+        type: choice
+        options:
+          - Release
+          - Debug
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compila IPA per iPadOS
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ambiente
+        run: |
+          echo "Xcode: $(xcodebuild -version | head -1)"
+          echo "Swift: $(swift --version | head -1)"
+
+      - name: Verifica schema
+        run: |
+          xcodebuild -list -project MarcusNote.xcodeproj
+
+      - name: Archive
+        env:
+          CONFIG: ${{ inputs.configuration || 'Release' }}
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild archive \
+            -project MarcusNote.xcodeproj \
+            -scheme MarcussNote \
+            -configuration "$CONFIG" \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/MarcussNote.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_ENTITLEMENTS="" \
+            2>&1 | tee build/archive.log
+
+      - name: Export IPA non firmato
+        run: |
+          mkdir -p build/export
+          xcodebuild -exportArchive \
+            -archivePath build/MarcussNote.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist \
+            2>&1 | tee build/export.log
+
+      - name: Carica IPA
+        env:
+          CONFIG: ${{ inputs.configuration || 'Release' }}
+        run: |
+          cp "$(ls build/export/*.ipa | head -1)" "MarcussNote-$CONFIG.ipa"
+          ls -la *.ipa
+
+      - name: Pubblica artefatto
+        uses: actions/upload-artifact@v4
+        with:
+          name: MarcussNote-IPA
+          path: "*.ipa"
+          if-no-files-found: error
