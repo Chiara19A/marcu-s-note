@@ -1,0 +1,30 @@
+workflows:
+  ios-unsigned-build:
+    name: Compila IPA non firmato
+    max_build_duration: 30
+    instance_type: mac_mini_m1
+    environment:
+      xcode: 16.0
+      cocoapods: default
+    scripts:
+      - name: Build iOS App
+        script: |
+          xcodebuild build \
+            -project MarcussNote/MarcusNote.xcodeproj \
+            -scheme MarcussNote \
+            -sdk iphonesimulator \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ASSETCATALOG_COMPILER_APPICON_NAME=""
+      - name: Package IPA
+        script: |
+          mkdir -p build/Payload
+          APP_DIR=$(find build/DerivedData -name "*.app" -type d | head -1)
+          cp -R "$APP_DIR" build/Payload/
+          cd build
+          zip -r "../MarcussNote.ipa" Payload
+    artifacts:
+      - "*.ipa"
