@@ -28,48 +28,33 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer || true
 
-      - name: Ambiente
-        run: |
-          echo "Xcode: $(xcodebuild -version | head -1)"
-          echo "Swift: $(swift --version | head -1)"
-
-      - name: Archive
+      - name: Compila .app per iOS/iPadOS
         env:
           CONFIG: ${{ inputs.configuration || 'Release' }}
         run: |
-          mkdir -p build
           set -o pipefail
-
-          xcodebuild archive \
+          xcodebuild build \
             -project MarcussNote/MarcusNote.xcodeproj \
             -scheme MarcussNote \
             -configuration "$CONFIG" \
-            -sdk iphoneos \
-            -archivePath build/MarcusNote.xcarchive \
-            CODE_SIGN_IDENTITY="" \
+            -sdk iphonesimulator \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_ENTITLEMENTS="" \
-            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
-            SWIFT_OPTIMIZATION_LEVEL="-O" \
-            ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS=NO \
-            2>&1 | tee build/archive.log
+            CODE_SIGN_IDENTITY=""
 
-      - name: Export IPA non firmato
-        run: |
-          mkdir -p build/export
-          xcodebuild -exportArchive \
-            -archivePath build/MarcusNote.xcarchive \
-            -exportPath build/export \
-            -exportOptionsPlist MarcussNote/ExportOptions.plist \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee build/export.log
-
-      - name: Carica IPA
+      - name: Impacchetta IPA
         env:
           CONFIG: ${{ inputs.configuration || 'Release' }}
         run: |
-          cp "$(ls build/export/*.ipa | head -1)" "MarcusNote-$CONFIG.ipa"
+          mkdir -p build/Payload
+          APP_PATH=$(find build/DerivedData -name "*.app" -type d | head -1)
+          echo "Trovata app in: $APP_PATH"
+          
+          cp -R "$APP_PATH" build/Payload/
+          cd build
+          zip -r "../MarcusNote-$CONFIG.ipa" Payload
+          cd ..
           ls -la *.ipa
 
       - name: Pubblica artefatto
