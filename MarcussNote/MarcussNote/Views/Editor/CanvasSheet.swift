@@ -110,7 +110,7 @@ struct CanvasSheet: View {
         .background(.bar)
     }
 
-    private func toolButton(_ type: PKInkingTool.InkingType, symbol: String) -> some View {
+    private func toolButton(_ type: PKInkingTool.InkType, symbol: String) -> some View {
         Button {
             tool = type
         } label: {
